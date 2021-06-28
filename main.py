@@ -153,7 +153,6 @@ def sub_addres(p_id, origin_address, dest_address, frame_address, p_pages):
     #MAIN_MEMORY[(frame_address*PAGE_SIZE)+tmp] = value
     
     
-    
 
 def interpret_command(command):
    
@@ -162,7 +161,7 @@ def interpret_command(command):
     print(command[0])
     
     print(LOGIC_MEMORY)
-    p_pages = LOGIC_MEMORY[command[0] + " "] #VER PQ ESTAVA COM ERRO DE ESPAÇO AQUI
+    p_pages = LOGIC_MEMORY[command[0]] 
     
     if command[1] == "l":        
         
