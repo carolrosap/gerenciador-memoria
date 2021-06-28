@@ -1,0 +1,5 @@
+2; Identificador do processo
+30; endereços de memória necessários (tamanho do processo)
+l 6; carrega o endereço 6
+s 0, 25; armazena valor 0 no endereço 25
+s 1, 15; armazena valor 1 no endereço 15

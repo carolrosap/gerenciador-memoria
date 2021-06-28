@@ -1,0 +1,4 @@
+1; Pid do processo
+20;  endereços de memória necessários (tamanho do processo)
+l 5; carrega o endereço 5
+s 2, 15; armazena o valor 2 no endereço 15
