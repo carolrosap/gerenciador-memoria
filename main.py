@@ -144,7 +144,7 @@ class memory:
 
         self.TLB[frame_address] = p_id + " " + str(int(page_address)//self.PAGE_SIZE)
 
-        print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
+        #print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
 
         p_pages[int(page_address)//self.PAGE_SIZE] = [self.MAIN_MEMORY[clebs] for clebs in range(frame_address*self.PAGE_SIZE, frame_address*self.PAGE_SIZE+self.PAGE_SIZE)]
 
@@ -207,14 +207,19 @@ class memory:
             for address in self.TLB:
                 if self.TLB[address] == -1 or self.TLB[address] == id:
                     self.load_address(command[0], command[2], address, p_pages)
-                    #self.update_free_memory_log(command[0], command[2], address)
+                    self.update_free_memory_log(command[0], command[2], address)
 
                     if address not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3):
                         self.PAGES_Q.append(id)
+                    elif self.PAGE_SUBSTITUTION == 2: 
+                        for i,page in enumerate(self.PAGES_Q): 
+                            if page == id: 
+                                del self.PAGES_Q[i] 
+                        self.PAGES_Q.append(id) 
 
-                    break
+                    return
 
-            if self.PAGE_SUBSTITUTION == 1:
+            if self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2: 
                 self.load_address(command[0], command[2], self.PAGES_Q[0], p_pages)
                 self.PAGES_Q.append(id)
                 del self.PAGES_Q[0]
@@ -238,7 +243,7 @@ class memory:
             for address in self.TLB:
                 if self.TLB[address] == -1 or self.TLB[address] == id:
                     self.store_address(command[0], command[2], command[3], address, p_pages)
-                    #self.update_free_memory_log(command[0], command[3], address)
+                    self.update_free_memory_log(command[0], command[3], address)
 
                     if address not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2) :
                         self.PAGES_Q.append(id)
