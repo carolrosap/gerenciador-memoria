@@ -245,11 +245,16 @@ class memory:
                     self.store_address(command[0], command[2], command[3], address, p_pages)
                     self.update_free_memory_log(command[0], command[3], address)
 
-                    if address not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2) :
+                    if address not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3) :
                         self.PAGES_Q.append(id)
+                    elif self.PAGE_SUBSTITUTION == 2: 
+                        for i,page in enumerate(self.PAGES_Q): 
+                            if page == id: 
+                                del self.PAGES_Q[i] 
+                        self.PAGES_Q.append(id) 
 
-                    break
-            if self.PAGE_SUBSTITUTION == 1:
+                    return
+            if self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2:
                 self.store_address(command[0], command[2], command[3], self.PAGES_Q[0], p_pages)
 
                 self.PAGES_Q.append(id)
