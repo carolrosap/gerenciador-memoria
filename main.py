@@ -16,19 +16,23 @@ class memory:
         self.PROCESSES_PATH = "processes/"
         self.VM_FILE = "Virtual_Memory.txt"
         self.LOG_FILE = "Log.txt"
+        self.TOTAL_FAULTIN_PAGES = 0
 
         for clebs in self.TLB:
             self.LOG = self.LOG.replace("LogPag", f'                Página Física {clebs}:-\nLogPag')
         self.LOG = self.LOG.replace("\nLogPag", "")
 
+        with open(self.VM_FILE, 'w') as file:
+            file.write("")
     def run(self):
         self.LOG = self.log_ref()
 
         for proc in self.PROCESS_Q:
             self.interpret_command(proc)
-        # print(self.LOG)
+        print(self.LOG)
         with open(self.LOG_FILE, 'w') as file:
             file.write(self.LOG)
+            file.write(f"\n>----------------------------------------\n|\n| > Total de faltas de páginas: {self.TOTAL_FAULTIN_PAGES};\n|\n>----------------------------------------")
 
     def read_VM(self):
         with open(self.VM_FILE, 'r') as file:
@@ -39,22 +43,15 @@ class memory:
         return tmp
 
     def dict_to_str(self, VM_data):
-
-        #print(VM_data)
-
         full_text = ""
 
         for line in VM_data:
-            #print(line)
             full_text = full_text + line+","
             tmp = [str(clebs) + "," for clebs in VM_data[line]]
             tmp[-1] = tmp[-1][:-1]
             for address in tmp:
                 full_text = full_text + address
             full_text = full_text + "\n"
-            #print(full_text)
-
-        #print(full_text)
 
         return full_text
 
@@ -126,18 +123,14 @@ class memory:
 
         for clebs in self.TLB:
             if clebs == frame_address:
-                print("if")
                 log = log.replace(f"PF{clebs}", f"\t{p_id}_{page_id}", 1)
             elif log[log.find(f"PF{clebs}")-4] == ":" or log[log.find(f"PF{clebs}")-4] == "-":
-                print("elif")
                 log = log.replace(f"PF{clebs}", f"-", 1)
             else:
-                print("else")
                 p_idx = "ERROR"
                 for idx, p in enumerate(log_lst[clebs+1].split("   ")):
                     if p == f"PF{clebs}":
                         p_idx = log_lst[clebs+1].split("   ")[idx-1]
-                        # print(p_idx)
                         break
                 log = log.replace(f"PF{clebs}", p_idx,1)
         self.LOG = log
@@ -149,7 +142,6 @@ class memory:
 
         self.TLB[frame_address] = p_id + " " + str(int(page_address)//self.PAGE_SIZE)
 
-        #print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
 
         p_pages[int(page_address)//self.PAGE_SIZE] = [self.MAIN_MEMORY[clebs] for clebs in range(frame_address*self.PAGE_SIZE, frame_address*self.PAGE_SIZE+self.PAGE_SIZE)]
 
@@ -162,9 +154,7 @@ class memory:
 
         self.TLB[frame_address] = p_id + " " + str(int(page_address)//self.PAGE_SIZE)
 
-        # print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
         self.MAIN_MEMORY[(int(frame_address)*self.PAGE_SIZE)+tmp] = value
-        # print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
 
         p_pages[int(page_address)//self.PAGE_SIZE][tmp] = self.MAIN_MEMORY[(int(frame_address)*self.PAGE_SIZE)+tmp]
 
@@ -227,8 +217,14 @@ class memory:
                     elif id not in self.PAGES_Q and self.PAGE_SUBSTITUTION == 3:
                         self.PAGES_Q.append(id+" 1")
 
-                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0][:-2], 1)
+                        self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0][:-2], 1)
+                        self.LOG = self.LOG.replace("F_P", "N ", 1)
+                        self.TOTAL_FAULTIN_PAGES += 1
+                        return
+
+                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
                     self.LOG = self.LOG.replace("F_P", "N ", 1)
+                    self.TOTAL_FAULTIN_PAGES += 1
                     return
 
             if self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2: 
@@ -239,6 +235,7 @@ class memory:
                 del self.PAGES_Q[0]
                 self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
                 self.LOG = self.LOG.replace("F_P", "Y ", 1)
+                self.TOTAL_FAULTIN_PAGES += 1
                 
             elif self.PAGE_SUBSTITUTION == 3:
                 blue = True
@@ -246,8 +243,6 @@ class memory:
                     for key, pages in enumerate(self.PAGES_Q):
                         if pages[-1] == "1":
                             new = self.PAGES_Q[key][:-1] + "0"
-                            # new = new[:-1] + "0"
-                            print(new)
 
                             self.PAGES_Q.append(new)
                             del self.PAGES_Q[key]
@@ -256,18 +251,16 @@ class memory:
                             for address in self.TLB:
                                 if self.TLB[address] == self.PAGES_Q[key][:-2]:
                                     fa_tmp = address
-                                    print(fa_tmp)
                                     break
 
                             self.load_address(command[0], command[2], fa_tmp, p_pages)
                             self.update_free_memory_log(command[0], id.split(" ")[1], fa_tmp)
 
-                            print(self.PAGES_Q)
-
                             self.PAGES_Q.append(id+" 1")
                             del self.PAGES_Q[key]
                             self.LOG = self.LOG.replace("P_S", self.PAGES_Q[key][:-2], 1)
                             self.LOG = self.LOG.replace("F_P", "Y ", 1)
+                            self.TOTAL_FAULTIN_PAGES += 1
                             blue = False
                             break
 
@@ -278,7 +271,6 @@ class memory:
                 try:
                     if self.TLB[address] == self.PAGES_Q[0]:
                         fa_tmp = address
-                        print(fa_tmp)
                 except:
                     pass
                 if self.TLB[address] == -1 or self.TLB[address] == id:
@@ -297,7 +289,13 @@ class memory:
 
                     self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0][:-2], 1)
                     self.LOG = self.LOG.replace("F_P", "N ", 1)
+                    self.TOTAL_FAULTIN_PAGES += 1
                     return
+
+                self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
+                self.LOG = self.LOG.replace("F_P", "N ", 1)
+                self.TOTAL_FAULTIN_PAGES += 1
+                return
 
             if self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2:
                 # print(fa_tmp)
@@ -308,17 +306,14 @@ class memory:
                 del self.PAGES_Q[0]
                 self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
                 self.LOG = self.LOG.replace("F_P", "Y ", 1)
+                self.TOTAL_FAULTIN_PAGES += 1
             
             elif self.PAGE_SUBSTITUTION == 3:
-                print("entrou")
                 blue = True
                 while blue:
                     for key, pages in enumerate(self.PAGES_Q):
                         if pages[-1] == "1":
                             new = self.PAGES_Q[key][:-1] + "0"
-                            # new = new[:-1] + "0"
-                            print(new)
-                            print(self.PAGES_Q)
 
                             self.PAGES_Q.append(new)
                             del self.PAGES_Q[key]
@@ -327,13 +322,11 @@ class memory:
                             for address in self.TLB:
                                 if self.TLB[address] == self.PAGES_Q[key][:-2]:
                                     fa_tmp = address
-                                    print(fa_tmp)
                                     break
 
                             self.store_address(command[0], command[2], command[3], fa_tmp, p_pages)
                             self.update_free_memory_log(command[0], id.split(" ")[1], fa_tmp)
 
-                            print(self.PAGES_Q)
 
                             self.PAGES_Q.append(id+" 1")
                             del self.PAGES_Q[key]
@@ -348,40 +341,40 @@ mm_size = int(input("> Insira o tamanho da memória principal: "))
 
 page_size = int(input("\n> Insira o tamanho das páginas: "))
 
-# 1 - FIFO
-page_substitution  = input("\n> Insira o algorítmo que deseja utilizar:\n1 - FIFO\n2 - LRU\n3 - Segunda chance\n")
+# 1 - FIFO  \n1 - FIFO\n2 - LRU\n3 - Segunda chance\n"
+print(">----------------------------------------\n|")
+print("| > 1 - FIFO\n| > 2 - LRU\n| > 3 - Segunda chance")
+print("|\n>----------------------------------------")
+page_substitution  = input("|\n| > Insira o algorítmo que deseja utilizar:")
 
-while(page_substitution != '1' and page_substitution != '2' and page_substitution != '3'):
-    PAGE_SUBSTITUTION = input(" > Valor inválido, digite novamente: ")
+while page_substitution != '1' and page_substitution != '2' and page_substitution != '3':
+    page_substitution = input("|\n| > Valor inválido, digite novamente: ")
 
 mem = memory(int(mm_size), int(page_size), int(page_substitution))
-
-# print(LOG)
-# raise("whatever")
 
 red = True
 
 while red:
 
-    print(">--------------------")
-    print("\n> Processos disponíveis\n")
+    print("|\n>----------------------------------------\n|")
+    print("| > Processos disponíveis\n|")
     processes = [f for f in listdir(mem.PROCESSES_PATH) if isfile(join(mem.PROCESSES_PATH, f))]
     list_proc = []
     for proc in processes:
         print("| > " + proc[:-4] + ";")
         list_proc.append(proc[:-4])
 
-    print("\n> run para rodar os processos")
-    print(">--------------------")
+    print("|\n| > 'run' para rodar os processos")
+    print(">----------------------------------------")
 
-    process_to_run = input("\n> Insira o processo que deseja executar: ")
+    process_to_run = input("|\n| > Insira o processo que deseja executar: ")
     
     if process_to_run == "run":
         red = False
         break
 
     while(not(list_proc.__contains__(process_to_run))):  
-        process_to_run = input("> Processo inválido, digite novamente: ")
+        process_to_run = input("|\n| > Processo inválido, digite novamente: ")
 
     mem.run_process(process_to_run)
 mem.run()
