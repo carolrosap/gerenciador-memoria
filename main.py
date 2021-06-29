@@ -118,12 +118,24 @@ class memory:
     def update_free_memory_log(self, p_id, page_address, frame_address):
         # LOG.find(f"{frame_address}:")
         log = self.LOG
+        log_lst = log.split("\n")
 
-        for clebs in range(self.PAGE_SIZE):
+        for clebs in self.TLB:
             if clebs == frame_address:
-                log = log.replace(f"PF{clebs}", f"\t{p_id}_{page_address}-")
+                print("if")
+                log = log.replace(f"PF{clebs}", f"\t{p_id}_{page_id}", 1)
+            elif log[log.find(f"PF{clebs}")-4] == ":" or log[log.find(f"PF{clebs}")-4] == "-":
+                print("elif")
+                log = log.replace(f"PF{clebs}", f"-", 1)
             else:
-                log = log.replace(f"PF{clebs}", f"   ")
+                print("else")
+                p_idx = "ERROR"
+                for idx, p in enumerate(log_lst[clebs+1].split("   ")):
+                    if p == f"PF{clebs}":
+                        p_idx = log_lst[clebs+1].split("   ")[idx-1]
+                        # print(p_idx)
+                        break
+                log = log.replace(f"PF{clebs}", p_idx,1)
         self.LOG = log
 
     def update_full_memory_log(self, p_id, page_address, frame_address):
@@ -158,7 +170,7 @@ class memory:
         self.TLB[frame_address] = p_id + " " + str(int(page_address)//self.PAGE_SIZE)
 
         # print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
-        self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp] = value
+        self.MAIN_MEMORY[(int(frame_address)*self.PAGE_SIZE)+tmp] = value
         # print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
 
         p_pages[int(page_address)//self.PAGE_SIZE][tmp] = self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp]
@@ -170,7 +182,7 @@ class memory:
 
         for idx, proc in enumerate(self.PROCESS_Q):
             proc = proc.split(" ")
-            log = log.replace("RefStr", f"   {proc[0]}_{proc[-1]}RefStr")
+            log = log.replace("RefStr", f"   {proc[0]}_{int(proc[-1]) // self.PAGE_SIZE}RefStr")
             log = log.replace("-", "   P_F-")
             log = log.replace("PLS", "   P_SPLS")
             log = log.replace("FP", "   F_PFP")
@@ -203,13 +215,19 @@ class memory:
 
 
         if command[1] == "l":
+            fa_tmp = 0
 
             for address in self.TLB:
+                try:
+                    if self.TLB[address] == self.PAGES_Q[0]:
+                        fa_tmp = address
+                except:
+                    pass
                 if self.TLB[address] == -1 or self.TLB[address] == id:
                     self.load_address(command[0], command[2], address, p_pages)
-                    self.update_free_memory_log(command[0], command[2], address)
+                    self.update_free_memory_log(command[0], id.split(" ")[1], frame_address=address)
 
-                    if address not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3):
+                    if id not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3):
                         self.PAGES_Q.append(id)
                     elif self.PAGE_SUBSTITUTION == 2: 
                         for i,page in enumerate(self.PAGES_Q): 
@@ -217,12 +235,18 @@ class memory:
                                 del self.PAGES_Q[i] 
                         self.PAGES_Q.append(id) 
 
+                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
+                    self.LOG = self.LOG.replace("F_P", "N ", 1)
                     return
 
             if self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2: 
-                self.load_address(command[0], command[2], self.PAGES_Q[0], p_pages)
+                self.load_address(command[0], command[2], fa_tmp, p_pages)
+                self.update_free_memory_log(command[0], id.split(" ")[1], fa_tmp)
+
                 self.PAGES_Q.append(id)
                 del self.PAGES_Q[0]
+                self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
+                self.LOG = self.LOG.replace("F_P", "Y ", 1)
                 
             elif self.PAGE_SUBSTITUTION == 3:
                 for key,pages in enumerate(self.PAGES_Q):
@@ -239,13 +263,20 @@ class memory:
                 
 
         elif command[1] == "s":
+            fa_tmp = 0
 
             for address in self.TLB:
+                try:
+                    if self.TLB[address] == self.PAGES_Q[0]:
+                        fa_tmp = address
+                        print(fa_tmp)
+                except:
+                    pass
                 if self.TLB[address] == -1 or self.TLB[address] == id:
                     self.store_address(command[0], command[2], command[3], address, p_pages)
-                    self.update_free_memory_log(command[0], command[3], address)
+                    self.update_free_memory_log(command[0], id.split(" ")[1], frame_address=address)
 
-                    if address not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3) :
+                    if id not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3):
                         self.PAGES_Q.append(id)
                     elif self.PAGE_SUBSTITUTION == 2: 
                         for i,page in enumerate(self.PAGES_Q): 
@@ -253,12 +284,19 @@ class memory:
                                 del self.PAGES_Q[i] 
                         self.PAGES_Q.append(id) 
 
+                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
+                    self.LOG = self.LOG.replace("F_P", "N ", 1)
                     return
+
             if self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2:
-                self.store_address(command[0], command[2], command[3], self.PAGES_Q[0], p_pages)
+                print(fa_tmp)
+                self.store_address(command[0], command[2], command[3], fa_tmp, p_pages)
+                self.update_free_memory_log(command[0], id.split(" ")[1], fa_tmp)
 
                 self.PAGES_Q.append(id)
                 del self.PAGES_Q[0]
+                self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
+                self.LOG = self.LOG.replace("F_P", "Y ", 1)
             
             elif self.PAGE_SUBSTITUTION == 3:
                  for key,pages in enumerate(self.PAGES_Q):
@@ -284,7 +322,7 @@ page_substitution  = input("\n> Insira o algorítmo que deseja utilizar:\n1 - FI
 while(page_substitution != '1' and page_substitution != '2' and page_substitution != '3'):
     PAGE_SUBSTITUTION = input(" > Valor inválido, digite novamente: ")
 
-mem = memory(mm_size, page_size, page_substitution)
+mem = memory(int(mm_size), int(page_size), int(page_substitution))
 
 # print(LOG)
 # raise("whatever")
