@@ -2,7 +2,8 @@
 from os import listdir
 from os.path import isfile, join
 
-class memory:
+#classe utilizada para armazenar e manpular os dados
+class Memory:
     def __init__(self, mms, psize, psubstitution):
         self.MM_SIZE = mms
         self.PAGE_SIZE = psize
@@ -24,6 +25,8 @@ class memory:
 
         with open(self.VM_FILE, 'w') as file:
             file.write("")
+            
+            
     def run(self):
         self.LOG = self.log_ref()
 
@@ -102,18 +105,13 @@ class memory:
 
     def run_process(self, process_to_run):
         with open(self.PROCESSES_PATH+process_to_run+".txt", 'r') as file:
-            #print(file.read())
             process = file.read().replace(";", "").replace(",", "")
             process = process.split("\n")
-            #print(int(process[1])/PAGE_SIZE)
 
             process_pages = {clebs: [address for address in range(self.PAGE_SIZE)] for clebs in range(int(process[1])//self.PAGE_SIZE)}
-            #print(process_pages)
-            #print(process)
             self.update_VM(process[0], process_pages)
             for clebs in process[2:]:
                 self.PROCESS_Q.append(str(process[0]) + " " + clebs)
-
             self.LOGIC_MEMORY[process[0]] = process_pages
 
     def update_free_memory_log(self, p_id, page_id, frame_address):
@@ -345,15 +343,18 @@ page_size = int(input("\n> Insira o tamanho das páginas: "))
 print(">----------------------------------------\n|")
 print("| > 1 - FIFO\n| > 2 - LRU\n| > 3 - Segunda chance")
 print("|\n>----------------------------------------")
-page_substitution  = input("|\n| > Insira o algorítmo que deseja utilizar:")
+page_substitution  = input("|\n| > Insira o algorítmo que deseja utilizar: ")
 
+#validação do algoritmo
 while page_substitution != '1' and page_substitution != '2' and page_substitution != '3':
     page_substitution = input("|\n| > Valor inválido, digite novamente: ")
 
-mem = memory(int(mm_size), int(page_size), int(page_substitution))
+#novo objeto da classe memory
+mem = Memory(int(mm_size), int(page_size), int(page_substitution)) 
 
 red = True
 
+#executa enquanto o usuário não digitar run
 while red:
 
     print("|\n>----------------------------------------\n|")
@@ -372,10 +373,13 @@ while red:
     if process_to_run == "run":
         red = False
         break
-
+    
+    #validação do processo informado
     while(not(list_proc.__contains__(process_to_run))):  
         process_to_run = input("|\n| > Processo inválido, digite novamente: ")
 
+    
     mem.run_process(process_to_run)
+    
 mem.run()
 
