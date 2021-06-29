@@ -15,6 +15,7 @@ class memory:
         self.LOG = "              String Referência:RefStr\nLogPag\nPágina Lógica a ser Substituida:PLS\n                  Faltou Página:FP\n                          Tempo:time"
         self.PROCESSES_PATH = "processes/"
         self.VM_FILE = "Virtual_Memory.txt"
+        self.LOG_FILE = "Log.txt"
 
         for clebs in self.TLB:
             self.LOG = self.LOG.replace("LogPag", f'                Página Física {clebs}:-\nLogPag')
@@ -25,6 +26,9 @@ class memory:
 
         for proc in self.PROCESS_Q:
             self.interpret_command(proc)
+        # print(self.LOG)
+        with open(self.LOG_FILE, 'w') as file:
+            file.write(self.LOG)
 
     def read_VM(self):
         with open(self.VM_FILE, 'r') as file:
@@ -115,7 +119,7 @@ class memory:
 
             self.LOGIC_MEMORY[process[0]] = process_pages
 
-    def update_free_memory_log(self, p_id, page_address, frame_address):
+    def update_free_memory_log(self, p_id, page_id, frame_address):
         # LOG.find(f"{frame_address}:")
         log = self.LOG
         log_lst = log.split("\n")
@@ -137,17 +141,6 @@ class memory:
                         break
                 log = log.replace(f"PF{clebs}", p_idx,1)
         self.LOG = log
-
-    def update_full_memory_log(self, p_id, page_address, frame_address):
-        pass
-        # log = self.LOG
-        #
-        # for clebs in range(self.PAGE_SIZE):
-        #     if clebs == frame_address:
-        #         log = log.replace(f"PF{clebs}", f"\t{p_id}_{page_address}-")
-        #     else:
-        #         log = log.replace(f"PF{clebs}", f"   ")
-        # self.LOG = log
 
     def load_address(self, p_id, page_address, frame_address, p_pages):
         tmp = int(page_address)
@@ -173,7 +166,7 @@ class memory:
         self.MAIN_MEMORY[(int(frame_address)*self.PAGE_SIZE)+tmp] = value
         # print(self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp])
 
-        p_pages[int(page_address)//self.PAGE_SIZE][tmp] = self.MAIN_MEMORY[(frame_address*self.PAGE_SIZE)+tmp]
+        p_pages[int(page_address)//self.PAGE_SIZE][tmp] = self.MAIN_MEMORY[(int(frame_address)*self.PAGE_SIZE)+tmp]
 
         self.update_VM(p_id, p_pages)
 
@@ -208,10 +201,7 @@ class memory:
         command = command.split(" ")
         p_pages = self.LOGIC_MEMORY[command[0]]
 
-        if self.PAGE_SUBSTITUTION != 3:
-            id = command[0] + " " + str(int(command[-1]) // self.PAGE_SIZE)
-        else:
-            id = command[0] + " " + str(int(command[-1]) // self.PAGE_SIZE) + " " + 1
+        id = command[0] + " " + str(int(command[-1]) // self.PAGE_SIZE)
 
 
         if command[1] == "l":
@@ -227,15 +217,17 @@ class memory:
                     self.load_address(command[0], command[2], address, p_pages)
                     self.update_free_memory_log(command[0], id.split(" ")[1], frame_address=address)
 
-                    if id not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3):
+                    if id not in self.PAGES_Q and self.PAGE_SUBSTITUTION == 1:
                         self.PAGES_Q.append(id)
                     elif self.PAGE_SUBSTITUTION == 2: 
                         for i,page in enumerate(self.PAGES_Q): 
                             if page == id: 
                                 del self.PAGES_Q[i] 
-                        self.PAGES_Q.append(id) 
+                        self.PAGES_Q.append(id)
+                    elif id not in self.PAGES_Q and self.PAGE_SUBSTITUTION == 3:
+                        self.PAGES_Q.append(id+" 1")
 
-                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
+                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0][:-2], 1)
                     self.LOG = self.LOG.replace("F_P", "N ", 1)
                     return
 
@@ -249,18 +241,35 @@ class memory:
                 self.LOG = self.LOG.replace("F_P", "Y ", 1)
                 
             elif self.PAGE_SUBSTITUTION == 3:
-                for key,pages in enumerate(self.PAGES_Q):
-                    if(pages[-1] == 1):
-                        new = self.PAGES_Q[key]
-                        new[-1] = 0
-                        self.PAGES_Q.append(new)
-                        del self.PAGES_Q[key]
-                    elif(pages[-1] == 0):
-                        self.load_address(command[0], command[2], pages[0], p_pages)
-                        self.PAGES_Q.append(id)
-                        del self.PAGES_Q[key]
-                        
-                
+                blue = True
+                while blue:
+                    for key, pages in enumerate(self.PAGES_Q):
+                        if pages[-1] == "1":
+                            new = self.PAGES_Q[key][:-1] + "0"
+                            # new = new[:-1] + "0"
+                            print(new)
+
+                            self.PAGES_Q.append(new)
+                            del self.PAGES_Q[key]
+                            break
+                        elif pages[-1] == "0":
+                            for address in self.TLB:
+                                if self.TLB[address] == self.PAGES_Q[key][:-2]:
+                                    fa_tmp = address
+                                    print(fa_tmp)
+                                    break
+
+                            self.load_address(command[0], command[2], fa_tmp, p_pages)
+                            self.update_free_memory_log(command[0], id.split(" ")[1], fa_tmp)
+
+                            print(self.PAGES_Q)
+
+                            self.PAGES_Q.append(id+" 1")
+                            del self.PAGES_Q[key]
+                            self.LOG = self.LOG.replace("P_S", self.PAGES_Q[key][:-2], 1)
+                            self.LOG = self.LOG.replace("F_P", "Y ", 1)
+                            blue = False
+                            break
 
         elif command[1] == "s":
             fa_tmp = 0
@@ -276,20 +285,22 @@ class memory:
                     self.store_address(command[0], command[2], command[3], address, p_pages)
                     self.update_free_memory_log(command[0], id.split(" ")[1], frame_address=address)
 
-                    if id not in self.PAGES_Q and (self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 3):
+                    if id not in self.PAGES_Q and self.PAGE_SUBSTITUTION == 1:
                         self.PAGES_Q.append(id)
                     elif self.PAGE_SUBSTITUTION == 2: 
                         for i,page in enumerate(self.PAGES_Q): 
                             if page == id: 
                                 del self.PAGES_Q[i] 
-                        self.PAGES_Q.append(id) 
+                        self.PAGES_Q.append(id)
+                    elif id not in self.PAGES_Q and self.PAGE_SUBSTITUTION == 3:
+                        self.PAGES_Q.append(id+" 1")
 
-                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0], 1)
+                    self.LOG = self.LOG.replace("P_S", self.PAGES_Q[0][:-2], 1)
                     self.LOG = self.LOG.replace("F_P", "N ", 1)
                     return
 
             if self.PAGE_SUBSTITUTION == 1 or self.PAGE_SUBSTITUTION == 2:
-                print(fa_tmp)
+                # print(fa_tmp)
                 self.store_address(command[0], command[2], command[3], fa_tmp, p_pages)
                 self.update_free_memory_log(command[0], id.split(" ")[1], fa_tmp)
 
@@ -299,16 +310,37 @@ class memory:
                 self.LOG = self.LOG.replace("F_P", "Y ", 1)
             
             elif self.PAGE_SUBSTITUTION == 3:
-                 for key,pages in enumerate(self.PAGES_Q):
-                    if(pages[-1] == 1):
-                        new = self.PAGES_Q[key]
-                        new[-1] = 0
-                        self.PAGES_Q.append(new)
-                        del self.PAGES_Q[key]
-                    elif(pages[-1] == 0):
-                        self.store_address(command[0], command[2], pages[0], p_pages)
-                        self.PAGES_Q.append(id)
-                        del self.PAGES_Q[key]
+                print("entrou")
+                blue = True
+                while blue:
+                    for key, pages in enumerate(self.PAGES_Q):
+                        if pages[-1] == "1":
+                            new = self.PAGES_Q[key][:-1] + "0"
+                            # new = new[:-1] + "0"
+                            print(new)
+                            print(self.PAGES_Q)
+
+                            self.PAGES_Q.append(new)
+                            del self.PAGES_Q[key]
+                            break
+                        elif pages[-1] == "0":
+                            for address in self.TLB:
+                                if self.TLB[address] == self.PAGES_Q[key][:-2]:
+                                    fa_tmp = address
+                                    print(fa_tmp)
+                                    break
+
+                            self.store_address(command[0], command[2], command[3], fa_tmp, p_pages)
+                            self.update_free_memory_log(command[0], id.split(" ")[1], fa_tmp)
+
+                            print(self.PAGES_Q)
+
+                            self.PAGES_Q.append(id+" 1")
+                            del self.PAGES_Q[key]
+                            self.LOG = self.LOG.replace("P_S", self.PAGES_Q[key][:-2], 1)
+                            self.LOG = self.LOG.replace("F_P", "Y ", 1)
+                            blue = False
+                            break
                 
                         
 
